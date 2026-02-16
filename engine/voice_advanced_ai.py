@@ -195,8 +195,13 @@ class VoiceAdvancedAI:
                 print(f"Groq failed: {e}, using Gemini")
                 self.ai_provider = 'gemini'
                 self._init_gemini()
+        elif self.ai_provider == 'ollama':
+            print("Using Ollama (Local AI)...")
         else:
             self._init_gemini()
+        
+        # Always init Ollama as backup/primary
+        self._init_ollama()
     
     def _init_gemini(self):
         try:
@@ -206,6 +211,14 @@ class VoiceAdvancedAI:
             self.gemini_model = genai.GenerativeModel('gemini-2.0-flash')
         except Exception as e:
             print(f"AI init error: {e}")
+
+    def _init_ollama(self):
+        try:
+            from engine.ollama_client import ollama_client
+            # Initialize without strict check to avoid startup delay
+            self.ollama_client = ollama_client
+        except:
+            self.ollama_client = None
     
     # Utility methods
     def _ensure_db(self):
@@ -335,7 +348,9 @@ class VoiceAdvancedAI:
     
     def _ai_generate(self, prompt: str) -> str:
         try:
-            if self.ai_provider == 'groq':
+            if self.ai_provider == 'ollama' and hasattr(self, 'ollama_client') and self.ollama_client:
+                 return self.ollama_client.generate(prompt)
+            elif self.ai_provider == 'groq':
                 response = self.groq_client.chat.completions.create(
                     messages=[{"role": "user", "content": prompt}],
                     model="llama-3.1-8b-instant"
@@ -345,6 +360,12 @@ class VoiceAdvancedAI:
                 response = self.gemini_model.generate_content(prompt)
                 return response.text.strip()
         except Exception as e:
+            # Fallback to Ollama
+            try:
+                if hasattr(self, 'ollama_client') and self.ollama_client:
+                    return self.ollama_client.generate(prompt)
+            except:
+                pass
             return f"AI generation error: {str(e)}"
     
     # VOICE-ACTIVATED ADVANCED FEATURES

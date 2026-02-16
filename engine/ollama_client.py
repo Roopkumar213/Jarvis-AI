@@ -38,7 +38,7 @@ class OllamaClient:
             response = requests.post(
                 self.endpoint,
                 json=payload,
-                timeout=60  # 60 second timeout for local model
+                timeout=300  # 300 second timeout for local model
             )
             
             if response.status_code == 200:
